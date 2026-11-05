@@ -1,8 +1,12 @@
 """Interface Streamlit: escolher modelo e busca, preparar embeddings e medir tempos."""
 
+import sys
 from pathlib import Path
 
-import streamlit as st
+# `streamlit run app/ui.py` põe app/ no sys.path, não a raiz do projeto
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import streamlit as st  # noqa: E402
 
 from app import busca, carga, db, embeddings, repo
 from app.config import ABORDAGENS_BUSCA, ABORDAGENS_EMBEDDING, K_FIXO, METRICAS, PASTA_IMAGENS
