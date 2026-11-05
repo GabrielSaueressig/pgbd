@@ -9,17 +9,13 @@ from app.config import ABORDAGENS_EMBEDDING
 
 
 def main() -> None:
-    from sentence_transformers import SentenceTransformer
     from transformers import AutoModel, AutoProcessor
 
     for nome, cfg in ABORDAGENS_EMBEDDING.items():
         modelo = cfg["modelo"]
         print(f"Baixando {nome} ({modelo})...", flush=True)
-        if modelo.startswith("clip-"):
-            SentenceTransformer(modelo, device="cpu")
-        else:
-            AutoProcessor.from_pretrained(modelo)
-            AutoModel.from_pretrained(modelo)
+        AutoProcessor.from_pretrained(modelo)
+        AutoModel.from_pretrained(modelo)
     print("Modelos em cache.")
 
 

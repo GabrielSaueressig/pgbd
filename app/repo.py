@@ -1,57 +1,90 @@
-"""Tabelas de embedding, regeneração ao vivo e configuração ativa."""
+"""Tabelas de embedding por modelo, preparação ao vivo e configuração."""
 
+import math
+import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 
-from app.config import ABORDAGENS_EMBEDDING, TAMANHO_LOTE
+from app.config import ABORDAGENS_EMBEDDING, OPCLASS_POR_METRICA, TAMANHO_LOTE
 from app.db import conexao
-from app.embeddings import dimensao, embed_imagem
+from app.embeddings import embed_imagens
+
+_SUFIXO = {"Cosseno": "cos", "L2": "l2", "Produto interno": "ip"}
 
 
-def aplicar_abordagem(abordagem: str, progresso=None) -> None:
-    """Recria a tabela embedding com a dimensão da abordagem e regenera todos os vetores."""
-    modelo = ABORDAGENS_EMBEDDING[abordagem]["modelo"]
-    dim = dimensao(abordagem)
-    with conexao() as conn:
-        conn.execute("DROP TABLE IF EXISTS embedding")
+def _criar_indices(conn, tabela: str, total: int) -> None:
+    lists = max(1, round(math.sqrt(total)))
+    conn.execute("SET maintenance_work_mem = '256MB'")
+    for metrica, opclass in OPCLASS_POR_METRICA.items():
+        s = _SUFIXO[metrica]
+        conn.execute(f"CREATE INDEX {tabela}_hnsw_{s} ON {tabela} USING hnsw (vetor {opclass})")
         conn.execute(
-            f"""
-            CREATE TABLE embedding (
-              imagem_id INT PRIMARY KEY REFERENCES imagem(id) ON DELETE CASCADE,
-              vetor     vector({dim}) NOT NULL
-            )
-            """
+            f"CREATE INDEX {tabela}_ivf_{s} ON {tabela} USING ivfflat (vetor {opclass}) WITH (lists = {lists})"
         )
-        conn.execute("CREATE INDEX embedding_hnsw ON embedding USING hnsw (vetor vector_cosine_ops)")
 
+
+def preparar_modelo(abordagem: str, progresso: Callable[[int, int], None] | None = None) -> dict:
+    """Recria a tabela do modelo, gera os vetores em lotes e cria os 6 índices."""
+    cfg = ABORDAGENS_EMBEDDING[abordagem]
+    tabela, dim = cfg["tabela"], cfg["dimensao"]
+    with conexao() as conn:
         imagens = conn.execute("SELECT id, caminho FROM imagem ORDER BY id").fetchall()
-        total = len(imagens)
-        for inicio in range(0, total, TAMANHO_LOTE):
-            for img_id, caminho in imagens[inicio:inicio + TAMANHO_LOTE]:
-                vetor = embed_imagem(caminho, abordagem)
-                conn.execute(
-                    "INSERT INTO embedding (imagem_id, vetor) VALUES (%s, %s)",
-                    (img_id, vetor),
-                )
-            if progresso:
-                progresso(min(inicio + TAMANHO_LOTE, total), total)
-
+        if not imagens:
+            raise ValueError("Não há imagens no catálogo: coloque arquivos em ./imagens")
+        conn.execute(f"DROP TABLE IF EXISTS {tabela}")
+        conn.execute("DELETE FROM config_embedding WHERE abordagem = %s", (abordagem,))
         conn.execute(
-            """
-            INSERT INTO config_embedding (id, modelo, dimensao, gerado_em, total)
-            VALUES (1, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE SET
-              modelo = EXCLUDED.modelo, dimensao = EXCLUDED.dimensao,
-              gerado_em = EXCLUDED.gerado_em, total = EXCLUDED.total
-            """,
-            (modelo, dim, datetime.now(timezone.utc), total),
+            f"""CREATE TABLE {tabela} (
+                  imagem_id INT PRIMARY KEY REFERENCES imagem(id) ON DELETE CASCADE,
+                  vetor     vector({dim}) NOT NULL)"""
         )
+        try:
+            total, puladas = len(imagens), 0
+            inseridas = 0
+            inicio = time.perf_counter()
+            for ini in range(0, total, TAMANHO_LOTE):
+                lote = imagens[ini:ini + TAMANHO_LOTE]
+                vetores = embed_imagens([c for _, c in lote], abordagem)
+                for (img_id, _), v in zip(lote, vetores):
+                    if v is None:
+                        puladas += 1
+                        continue
+                    conn.execute(f"INSERT INTO {tabela} (imagem_id, vetor) VALUES (%s, %s)", (img_id, v))
+                    inseridas += 1
+                if progresso:
+                    progresso(min(ini + TAMANHO_LOTE, total), total)
+            tempo = time.perf_counter() - inicio
+            if inseridas == 0:
+                raise ValueError("Nenhuma imagem pôde ser lida")
+            _criar_indices(conn, tabela, inseridas)
+            conn.execute(
+                """INSERT INTO config_embedding (abordagem, tabela, dimensao, total, tempo_geracao_s, gerado_em)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (abordagem, tabela, dim, inseridas, tempo, datetime.now(timezone.utc)),
+            )
+        except BaseException:
+            conn.execute(f"DROP TABLE IF EXISTS {tabela}")
+            raise
+    return {"total": inseridas, "puladas": puladas, "tempo_geracao_s": tempo}
 
 
-def obter_config() -> dict:
+def modelo_preparado(abordagem: str) -> bool:
+    return obter_config(abordagem) is not None
+
+
+def obter_config(abordagem: str) -> dict | None:
     with conexao() as conn:
-        linha = conn.execute(
-            "SELECT modelo, dimensao, gerado_em, total FROM config_embedding WHERE id = 1"
-        ).fetchone()
-    if linha is None:
-        return {"modelo": None, "dimensao": None, "gerado_em": None, "total": 0}
-    return dict(zip(["modelo", "dimensao", "gerado_em", "total"], linha))
+        cur = conn.execute(
+            """SELECT abordagem, tabela, dimensao, total, tempo_geracao_s, gerado_em
+               FROM config_embedding WHERE abordagem = %s""",
+            (abordagem,),
+        )
+        linha = cur.fetchone()
+        if linha is None:
+            return None
+        return dict(zip([d.name for d in cur.description], linha))
+
+
+def total_imagens() -> int:
+    with conexao() as conn:
+        return conn.execute("SELECT count(*) FROM imagem").fetchone()[0]
