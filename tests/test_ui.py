@@ -94,3 +94,10 @@ def test_erro_de_busca_vira_mensagem(ui, monkeypatch):
     monkeypatch.setattr(busca, "buscar", erro)
     buscar(ui.run())
     assert not ui.exception and any("modelo não preparado" in e.value for e in ui.error)
+
+
+def test_botao_relatorio_avisa_que_nao_esta_implementado(ui):
+    ui.run()
+    ui.button(key="relatorio").click().run()
+    assert not ui.exception
+    assert any("futuramente" in i.value for i in ui.info)

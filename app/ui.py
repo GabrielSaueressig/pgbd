@@ -86,3 +86,10 @@ if clicou:
                         st.warning(f"Arquivo não encontrado: {item['caminho']}")
             with st.expander("EXPLAIN"):
                 st.code(r["plano"])
+
+st.divider()
+st.subheader("Relatório")
+if st.button("Testar todas as combinações e gerar relatório", key="relatorio"):
+    # Futuro: percorrer modelo × busca × métrica (ligar ao benchmark.py), acumular os
+    # resultados e gerar o relatório acumulado.
+    st.info("Ainda não implementado: será feito futuramente.")
