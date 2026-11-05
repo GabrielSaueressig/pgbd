@@ -1,40 +1,84 @@
-"""Interface Streamlit: página única com select de embedding e select de busca."""
+"""Interface Streamlit: escolher modelo e busca, preparar embeddings e medir tempos."""
+
+from pathlib import Path
 
 import streamlit as st
 
-from app.carga import sincronizar_pasta
-from app.config import ABORDAGENS_BUSCA, ABORDAGENS_EMBEDDING, METRICAS
-from app.repo import aplicar_abordagem, obter_config
+from app import busca, carga, db, embeddings, repo
+from app.config import ABORDAGENS_BUSCA, ABORDAGENS_EMBEDDING, K_FIXO, METRICAS, PASTA_IMAGENS
 
 st.set_page_config(page_title="Busca de imagens com pgvector", layout="wide")
 
-if "carga_feita" not in st.session_state:
-    sincronizar_pasta("imagens")
-    st.session_state["carga_feita"] = True
 
-with st.sidebar:
-    st.header("Embeddings")
-    abordagem = st.selectbox("Abordagem de embedding", list(ABORDAGENS_EMBEDDING))
-    if st.button("Gerar embeddings"):
-        barra = st.progress(0.0, text="Gerando embeddings...")
-        aplicar_abordagem(
-            abordagem,
-            progresso=lambda feitas, total: barra.progress(feitas / total, text=f"{feitas}/{total}"),
-        )
-        st.success("Embeddings gerados")
-    config = obter_config()
-    st.caption(f"Ativa: {config['modelo'] or 'nenhuma'} | dimensão: {config['dimensao']} | total: {config['total']}")
+@st.cache_resource(show_spinner="Preparando o ambiente...")
+def inicializar() -> int:
+    db.criar_schema()
+    return carga.sincronizar_pasta(PASTA_IMAGENS)
 
+
+@st.cache_resource(show_spinner="Carregando o modelo...")
+def aquecer(abordagem: str) -> bool:
+    embeddings.aquecer(abordagem)
+    return True
+
+
+inicializar()
 st.title("Busca de imagens por texto")
 
-col_texto, col_k = st.columns([4, 1])
-texto = col_texto.text_input("Descreva a imagem")
-k = col_k.number_input("Resultados (k)", min_value=1, max_value=50, value=5)
+total = repo.total_imagens()
+if total == 0:
+    st.warning(f"Não há imagens no catálogo. Coloque arquivos em ./{PASTA_IMAGENS}/<categoria>/ e recarregue.")
 
-col_busca, col_metrica = st.columns(2)
-modelo_busca = col_busca.selectbox("Abordagem de busca", ABORDAGENS_BUSCA)
-metrica = col_metrica.selectbox("Métrica (vetorial)", list(METRICAS))
+c1, c2, c3 = st.columns(3)
+abordagem = c1.selectbox("Abordagem de embedding", list(ABORDAGENS_EMBEDDING))
+modo = c2.selectbox("Abordagem de busca", ABORDAGENS_BUSCA)
+metrica = c3.selectbox("Métrica", list(METRICAS))
 
-if st.button("Buscar") and texto:
-    # Área 3: chamar busca.buscar(texto, modelo_busca, k, metrica=metrica) e exibir a grade
-    st.info("Busca ainda não implementada (Área 3).")
+preparado = total > 0 and repo.modelo_preparado(abordagem)
+if total > 0 and not preparado:
+    st.info(f"O modelo {abordagem} ainda não gerou embeddings para as {total} imagens.")
+    if st.button("Preparar modelo", key="preparar"):
+        barra = st.progress(0.0, text="Gerando embeddings...")
+        try:
+            r = repo.preparar_modelo(
+                abordagem,
+                progresso=lambda f, t: barra.progress(f / t, text=f"{f}/{t} imagens"),
+            )
+        except Exception as e:
+            barra.empty()
+            st.error(f"Falha ao preparar o modelo: {e}")
+        else:
+            st.success(f"Pronto: {r['total']} embeddings em {r['tempo_geracao_s']:.1f} s"
+                       + (f" ({r['puladas']} imagens ilegíveis puladas)" if r["puladas"] else ""))
+            st.rerun()
+
+if preparado:
+    aquecer(abordagem)
+
+texto = st.text_input("Descreva a imagem", disabled=not preparado)
+clicou = st.button("Buscar", key="buscar", disabled=not preparado)
+
+if clicou:
+    if not texto.strip():
+        st.warning("Digite um texto para buscar.")
+    else:
+        try:
+            r = busca.buscar(texto, modo, K_FIXO, metrica, abordagem)
+        except ValueError as e:
+            st.error(str(e))
+        else:
+            cfg = repo.obter_config(abordagem)
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Tempo de busca", f"{r['tempo_ms']:.2f} ms", help="Mediana de 5 execuções")
+            m2.metric("1ª execução", f"{r['tempo_ms_1a']:.2f} ms")
+            m3.metric("Tempo de gerar embeddings", f"{cfg['tempo_geracao_s']:.1f} s", help="Base inteira, última geração")
+            m4.metric("Índice usado", r["indice"] or "nenhum (varredura)")
+            colunas = st.columns(K_FIXO)
+            for col, item in zip(colunas, r["resultados"]):
+                with col:
+                    if Path(item["caminho"]).is_file():
+                        st.image(item["caminho"], caption=f"{item['nome']} · score {item['score']:.4f}")
+                    else:
+                        st.warning(f"Arquivo não encontrado: {item['caminho']}")
+            with st.expander("EXPLAIN"):
+                st.code(r["plano"])
