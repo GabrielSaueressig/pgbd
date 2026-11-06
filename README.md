@@ -15,6 +15,16 @@ scripts/init.sh
 
 O script é idempotente e faz: `.env` a partir de `.env.example`, `docker compose up -d`, espera do Postgres, aplica `schema.sql`, cria `.venv` e instala `requirements.txt`, e pré-baixa os 3 modelos. Para pular o download dos modelos (vários GB): `scripts/init.sh --sem-modelos`.
 
+## Imagens
+
+Baixe o [Unsplash 25k](https://www.kaggle.com/datasets/ntsv648/unsplash-25k) do Kaggle (precisa de conta) para fora do repositório e amostre ~5k imagens:
+
+```bash
+python scripts/amostrar_imagens.py ~/Downloads/unsplash-25k --n 5000
+```
+
+As imagens vão para `imagens/unsplash/` (ignoradas pelo git); a subpasta vira a tag.
+
 ## Executar
 
 ```bash

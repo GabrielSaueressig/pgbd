@@ -113,3 +113,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .superpowers/
+
+# Imagens do dataset (mantém só os .gitkeep)
+imagens/**/*.jpg
+imagens/**/*.jpeg
+imagens/**/*.png
