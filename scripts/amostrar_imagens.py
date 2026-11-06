@@ -42,7 +42,7 @@ def amostrar(origem: Path, destino: Path, n: int, categoria: str = "unsplash", s
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("origem", type=Path)
-    ap.add_argument("--n", type=int, default=5000)
+    ap.add_argument("--n", type=int, default=500)
     ap.add_argument("--categoria", default="unsplash")
     ap.add_argument("--semente", type=int, default=42)
     ap.add_argument("--destino", type=Path, default=Path("imagens"))

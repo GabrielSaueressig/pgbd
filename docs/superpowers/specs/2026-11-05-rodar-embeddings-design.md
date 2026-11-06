@@ -3,10 +3,10 @@
 Complementa `2026-11-05-embeddings-e-interface-design.md`. O código de `app/embeddings.py` e `app/repo.py` já existe; este design cobre obter os dados, validar os modelos, medir e gerar a base.
 
 ## Intenção
-Ter as ~5k imagens do Unsplash 25k embutidas pelos 3 modelos (CLIP B/32, CLIP L/14, SigLIP) em tabelas `emb_*` com os 6 índices, para a interface e o benchmark usarem dados reais. Trabalho acadêmico: o foco é comparar abordagens.
+Ter as ~500 imagens do Unsplash 25k embutidas pelos 3 modelos (CLIP B/32, CLIP L/14, SigLIP) em tabelas `emb_*` com os 6 índices, para a interface e o benchmark usarem dados reais. Trabalho acadêmico: o foco é comparar abordagens.
 
 ## Objetivos
-- `./imagens/<categoria>/` com ~5k imagens amostradas do Unsplash 25k.
+- `./imagens/<categoria>/` com ~500 imagens amostradas do Unsplash 25k.
 - Os 3 modelos baixados e carregando na CPU.
 - ms/imagem medido por modelo; decisão registrada sobre quais modelos entram na demo ao vivo.
 - Os 3 modelos preparados (`preparar_modelo`) na base completa.
@@ -28,7 +28,7 @@ Ter as ~5k imagens do Unsplash 25k embutidas pelos 3 modelos (CLIP B/32, CLIP L/
 - **C. Tudo em lote sem acompanhar:** `preparar_modelo` descarta a tabela se falhar, então uma falha tardia no L/14 perde tudo. Descartada.
 
 ## Passos
-1. Baixar o Unsplash 25k (Kaggle) e criar um script de amostragem que copia ~5k imagens para `imagens/<categoria>/` (as subpastas viram tags, como já faz `carga.sincronizar_pasta`).
+1. Baixar o Unsplash 25k (Kaggle) e criar um script de amostragem que copia ~500 imagens para `imagens/<categoria>/` (as subpastas viram tags, como já faz `carga.sincronizar_pasta`).
 2. Rodar `scripts/baixar_modelos.py` para L/14 e SigLIP (B/32 já está no cache).
 3. Validar os 3 modelos em ~200 imagens: carregam, dimensões 512/768/768, norma ≈ 1, e medir ms/imagem. Se o SigLIP falhar por tokenizador, adicionar `sentencepiece` ao `requirements.txt`.
 4. Com as medições, estimar o tempo da base completa e decidir quais modelos entram na demo ao vivo.

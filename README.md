@@ -5,7 +5,7 @@ Interface Streamlit para comparar abordagens de embedding (CLIP B/32, CLIP L/14,
 ## Pré-requisitos
 - Docker com Compose
 - Python 3.12 e [uv](https://docs.astral.sh/uv/) (recomendado) ou o pacote `python3-venv`
-- Imagens em `imagens/<categoria>/` (subconjunto do Unsplash 25k, ~5k imagens)
+- Imagens em `imagens/<categoria>/` (subconjunto do Unsplash 25k, ~500 imagens)
 
 ## Setup
 
@@ -17,10 +17,10 @@ O script é idempotente e faz: `.env` a partir de `.env.example`, `docker compos
 
 ## Imagens
 
-Baixe o [Unsplash 25k](https://www.kaggle.com/datasets/ntsv648/unsplash-25k) do Kaggle (precisa de conta) para fora do repositório e amostre ~5k imagens:
+Baixe o [Unsplash 25k](https://www.kaggle.com/datasets/ntsv648/unsplash-25k) do Kaggle (precisa de conta) para fora do repositório e amostre ~500 imagens:
 
 ```bash
-python scripts/amostrar_imagens.py ~/Downloads/unsplash-25k --n 5000
+python scripts/amostrar_imagens.py ~/Downloads/unsplash-25k --n 500
 ```
 
 As imagens vão para `imagens/unsplash/` (ignoradas pelo git); a subpasta vira a tag.

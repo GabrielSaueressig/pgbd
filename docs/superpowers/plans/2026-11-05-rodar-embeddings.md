@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ter ~5k imagens do Unsplash 25k em `./imagens/` embutidas pelos 3 modelos (CLIP B/32, CLIP L/14, SigLIP), com tempos medidos e os 6 índices por modelo.
+**Goal:** Ter ~500 imagens do Unsplash 25k em `./imagens/` embutidas pelos 3 modelos (CLIP B/32, CLIP L/14, SigLIP), com tempos medidos e os 6 índices por modelo.
 
 **Architecture:** Três scripts avulsos em `scripts/` (amostrar, medir, gerar) sobre o código existente (`app/embeddings.py`, `app/repo.py`, `app/carga.py`), sem alterar o fluxo de `preparar_modelo`. Cada script tem uma função pura testável e um `main()` fino. A etapa de medição roda sem banco, num subconjunto, antes da geração completa.
 
@@ -14,7 +14,7 @@
 
 - Sem GPU: `DEVICE = "cpu"`; 12 núcleos, 7 GB de RAM.
 - Postgres 16 + pgvector em Docker (já rodando); dimensões 512 / 768 / 768.
-- Alvo: ~5k imagens em `imagens/<categoria>/`; tags vêm do nome da subpasta (`carga.sincronizar_pasta`).
+- Alvo: ~500 imagens em `imagens/<categoria>/`; tags vêm do nome da subpasta (`carga.sincronizar_pasta`).
 - `preparar_modelo` não é alterado, salvo dependência faltando (ex.: `sentencepiece`).
 - Ordem da geração completa: CLIP B/32, SigLIP, CLIP L/14.
 - Testes que usam L/14 ou SigLIP levam `@pytest.mark.slow`; testes de scripts usam `embed_falso`/vetores falsos, não modelos reais.
@@ -38,7 +38,7 @@
 - Modify: `.gitignore` (ignorar `imagens/**/*.jpg`, `*.jpeg`, `*.png`, mantendo os `.gitkeep`), `README.md` (seção "Imagens": como baixar o Unsplash 25k do Kaggle e rodar o script)
 
 **Interfaces:**
-- Produces: `amostrar(origem: Path, destino: Path, n: int, categoria: str = "unsplash", semente: int = 42) -> int` (devolve quantas imagens copiou; ordem determinística pela semente). `main()` com argumentos `origem`, `--n` (padrão 5000), `--categoria`, `--semente`, `--destino` (padrão `imagens`).
+- Produces: `amostrar(origem: Path, destino: Path, n: int, categoria: str = "unsplash", semente: int = 42) -> int` (devolve quantas imagens copiou; ordem determinística pela semente). `main()` com argumentos `origem`, `--n` (padrão 500), `--categoria`, `--semente`, `--destino` (padrão `imagens`).
 
 - [ ] **Step 1: Write the failing tests** em `tests/test_amostrar.py`, com `tmp_path` e imagens PIL sintéticas pequenas:
   - `test_copia_n_imagens_na_categoria`: origem com 10 jpg e 1 `.csv`; `amostrar(origem, destino, 4)` devolve 4 e `destino/unsplash/` tem 4 arquivos, nenhum `.csv`.
@@ -51,19 +51,19 @@
 - [ ] **Step 4: Run** `pytest tests/test_amostrar.py -v` — Expected: PASS.
 - [ ] **Step 5: Commit** `git add scripts/amostrar_imagens.py tests/test_amostrar.py .gitignore README.md && git commit -m "feat: script de amostragem das imagens do Unsplash"`
 
-### Task 2: Obter o dataset e amostrar 5k (operacional)
+### Task 2: Obter o dataset e amostrar 500 (operacional)
 
 **Files:**
 - Nenhum arquivo de código; resultado em `imagens/unsplash/` (ignorado pelo git).
 
 **Interfaces:**
 - Consumes: `scripts/amostrar_imagens.py` (Task 1).
-- Produces: ~5000 imagens em `imagens/unsplash/`.
+- Produces: ~500 imagens em `imagens/unsplash/`.
 
 - [ ] **Step 1: Baixar o Unsplash 25k** do Kaggle (`ntsv648/unsplash-25k`) para fora do repositório, por exemplo `~/Downloads/unsplash-25k/`; é preciso conta no Kaggle (o usuário faz o login/download manual ou fornece o `kaggle` CLI configurado).
 - [ ] **Step 2: Confirmar o conteúdo** com `find ~/Downloads/unsplash-25k -type f | sed 's/.*\.//' | sort | uniq -c`; anotar se há CSV de metadados (descrição/palavras-chave), pois isso decide trigram/full-text depois.
-- [ ] **Step 3: Rodar** `python scripts/amostrar_imagens.py ~/Downloads/unsplash-25k --n 5000`.
-- [ ] **Step 4: Verificar** `find imagens -type f ! -name .gitkeep | wc -l` — Expected: 5000 (ou o total disponível, se menor).
+- [ ] **Step 3: Rodar** `python scripts/amostrar_imagens.py ~/Downloads/unsplash-25k --n 500`.
+- [ ] **Step 4: Verificar** `find imagens -type f ! -name .gitkeep | wc -l` — Expected: 500 (ou o total disponível, se menor).
 
 ### Task 3: Script de medição dos modelos em subconjunto
 
