@@ -9,6 +9,14 @@ Interface Streamlit para comparar abordagens de embedding (CLIP B/32, CLIP L/14,
 
 > Com só 73 imagens, a busca exata e os índices HNSW/IVFFlat ficam com tempos e resultados quase idênticos (recall ~100%). A comparação de índices é limitada a esse tamanho; para uma curva mais informativa, amostre mais imagens (seção "Imagens").
 
+## Início rápido
+
+```bash
+scripts/rodar.sh
+```
+
+Faz tudo: extrai as imagens de `dados/imagens-unsplash.zip` (se `imagens/` estiver vazia), roda o `init.sh`, gera os embeddings dos 3 modelos (pula os já prontos) e abre a interface. Opções: `--sem-modelos` (não pré-baixa os modelos), `--sem-ui` (não abre o Streamlit). O passo a passo manual está abaixo.
+
 ## Setup
 
 ```bash
