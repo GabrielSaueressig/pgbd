@@ -5,7 +5,9 @@ Interface Streamlit para comparar abordagens de embedding (CLIP B/32, CLIP L/14,
 ## Pré-requisitos
 - Docker com Compose
 - Python 3.12 e [uv](https://docs.astral.sh/uv/) (recomendado) ou o pacote `python3-venv`
-- Imagens em `imagens/<categoria>/` (subconjunto do Unsplash 25k, ~500 imagens)
+- Imagens em `imagens/<categoria>/` (subconjunto do Unsplash 25k; o trabalho usa as 73 já amostradas em `imagens/unsplash/`)
+
+> Com só 73 imagens, a busca exata e os índices HNSW/IVFFlat ficam com tempos e resultados quase idênticos (recall ~100%). A comparação de índices é limitada a esse tamanho; para uma curva mais informativa, amostre mais imagens (seção "Imagens").
 
 ## Setup
 
